@@ -22,6 +22,7 @@ if (empty($name) || empty($phone) || empty($email) || empty($type) || empty($mes
     die('Пожалуйста, заполните все обязательные поля.');
 }
 
+
 try {
     $bitrix = new BitrixClient($config['bitrix']['webhook_url']);
 
@@ -52,9 +53,29 @@ try {
     }
 
     $deal = new Deal("Запрос от $name $lastName", "SALE", "WEB_FORM", "NEW");
+
+    $customFields = [
+        'UF_CRM_TYPE_OF_REQUEST' => 'UF_CRM_1730114130',
+        'UF_CRM_MESSAGE' => 'UF_CRM_1730115445',
+    ];
+
+    $typeOptions = [
+        'Консультация' => '257',
+        'Поддержка' => '259',
+        'Обратная связь' => '261',
+    ];
+
+    $typeId = $typeOptions[$type] ?? null;
+    if (!$typeId) {
+        throw new \Exception("Некорректный тип запроса.");
+    }
+
     $dealFields = array_merge($deal->toArray(), [
-        'CONTACT_ID' => $contactId
+        'CONTACT_ID' => $contactId,
+        $customFields['UF_CRM_TYPE_OF_REQUEST'] => $typeId,
+        $customFields['UF_CRM_MESSAGE'] => $message,
     ]);
+
     $dealId = $bitrix->createDeal($dealFields);
     if (!$dealId) {
         throw new \Exception("Не удалось создать сделку.");

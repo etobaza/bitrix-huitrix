@@ -25,10 +25,11 @@
         <label for="type">Тип запроса:</label>
         <select id="type" name="type" required>
             <option value="">Выберите тип</option>
-            <option value="consultation">Консультация</option>
-            <option value="support">Поддержка</option>
-            <option value="feedback">Обратная связь</option>
+            <option value="Консультация">Консультация</option>
+            <option value="Поддержка">Поддержка</option>
+            <option value="Обратная связь">Обратная связь</option>
         </select>
+
 
         <label for="message">Сообщение:</label>
         <textarea id="message" name="message" rows="5" required></textarea>
