@@ -22,29 +22,38 @@ if (empty($name) || empty($phone) || empty($email) || empty($type) || empty($mes
     die('Пожалуйста, заполните все обязательные поля.');
 }
 
-
 try {
     $bitrix = new BitrixClient($config['bitrix']['webhook_url']);
 
     $existingContacts = $bitrix->findContactByPhoneOrEmail($phone, $email);
 
     $contactId = null;
-    $createNewContact = true;
+    $phoneMatch = false;
+    $emailMatch = false;
 
     foreach ($existingContacts as $contact) {
-        if (
-            strtolower($contact['NAME']) === strtolower($name) &&
-            strtolower($contact['LAST_NAME']) === strtolower($lastName) &&
-            isset($contact['PHONE'][0]['VALUE']) && $contact['PHONE'][0]['VALUE'] === $phone &&
-            isset($contact['EMAIL'][0]['VALUE']) && $contact['EMAIL'][0]['VALUE'] === $email
-        ) {
+        $contactPhones = array_map(function ($p) {
+            return $p['VALUE'];
+        }, $contact['PHONE'] ?? []);
+        $contactEmails = array_map(function ($e) {
+            return $e['VALUE'];
+        }, $contact['EMAIL'] ?? []);
+
+        if (in_array($phone, $contactPhones)) {
+            $phoneMatch = true;
+        }
+
+        if (in_array($email, $contactEmails)) {
+            $emailMatch = true;
+        }
+
+        if ($phoneMatch || $emailMatch) {
             $contactId = $contact['ID'];
-            $createNewContact = false;
             break;
         }
     }
 
-    if ($createNewContact) {
+    if (!$contactId) {
         $contact = new Contact($name, $lastName, $phone, $email, $type);
         $contactId = $bitrix->createContact($contact->toArray());
         if (!$contactId) {
