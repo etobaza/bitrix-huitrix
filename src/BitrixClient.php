@@ -1,6 +1,4 @@
 <?php
-// src/BitrixClient.php
-
 namespace Src;
 
 use GuzzleHttp\Client;
@@ -13,7 +11,6 @@ class BitrixClient
 
     public function __construct(string $webhookUrl)
     {
-        // Убедитесь, что URL вебхука заканчивается на "/"
         $this->webhookUrl = rtrim($webhookUrl, '/') . '/';
         $this->client = new Client([
             'base_uri' => $this->webhookUrl,
@@ -22,23 +19,23 @@ class BitrixClient
         ]);
     }
 
-    /**
-     * Выполняет запрос к API Битрикс24.
-     */
-    private function request(string $method, array $params = [])
+    private function request(string $method, array $params = [], string $httpMethod = 'POST')
     {
         try {
-            // Формируем полный путь с методом
-            $url = $method;
+            $options = [
+                'verify' => false,
+                'http_errors' => false,
+            ];
 
-            $response = $this->client->post($url, [
-                'form_params' => $params
-            ]);
+            if (strtoupper($httpMethod) === 'GET') {
+                $options['query'] = $params;
+                $response = $this->client->get($method, $options);
+            } else {
+                $options['json'] = $params;
+                $response = $this->client->post($method, $options);
+            }
 
             $body = json_decode($response->getBody(), true);
-
-            // Логирование ответа
-            file_put_contents(__DIR__ . '/../logs/bitrix.log', date('Y-m-d H:i:s') . " - $method - " . print_r($body, true) . "\n", FILE_APPEND);
 
             if (isset($body['error'])) {
                 throw new \Exception("Bitrix API Error: " . $body['error_description']);
@@ -50,24 +47,22 @@ class BitrixClient
         }
     }
 
-    /**
-     * Поиск контакта по телефону или email.
-     */
-    public function findContact(string $value)
+    public function findContactByPhoneOrEmail(string $phone, string $email)
     {
-        return $this->request('crm.contact.list', [
-            'filter' => [
-                ['=PHONE' => $value],
-                ['=EMAIL' => $value],
-            ],
+        $filter = [
+            'LOGIC' => 'OR',
+            ['=PHONE' => $phone],
+            ['=EMAIL' => $email],
+        ];
+
+        $params = [
+            'filter' => $filter,
             'select' => ['ID', 'NAME', 'LAST_NAME', 'PHONE', 'EMAIL'],
-            'limit' => 1,
-        ]);
+        ];
+
+        return $this->request('crm.contact.list', $params, 'GET');
     }
 
-    /**
-     * Создание нового контакта.
-     */
     public function createContact(array $fields)
     {
         return $this->request('crm.contact.add', [
@@ -76,9 +71,6 @@ class BitrixClient
         ]);
     }
 
-    /**
-     * Создание новой сделки.
-     */
     public function createDeal(array $fields)
     {
         return $this->request('crm.deal.add', [

@@ -1,5 +1,4 @@
 <?php
-
 require_once __DIR__ . '/../vendor/autoload.php';
 
 use Src\BitrixClient;
@@ -26,18 +25,27 @@ if (empty($name) || empty($phone) || empty($email) || empty($type) || empty($mes
 try {
     $bitrix = new BitrixClient($config['bitrix']['webhook_url']);
 
-    $contactData = $bitrix->findContact($phone);
+    $existingContacts = $bitrix->findContactByPhoneOrEmail($phone, $email);
 
-    if (!$contactData) {
-        $contactData = $bitrix->findContact($email);
+    $contactId = null;
+    $createNewContact = true;
+
+    foreach ($existingContacts as $contact) {
+        if (
+            strtolower($contact['NAME']) === strtolower($name) &&
+            strtolower($contact['LAST_NAME']) === strtolower($lastName) &&
+            isset($contact['PHONE'][0]['VALUE']) && $contact['PHONE'][0]['VALUE'] === $phone &&
+            isset($contact['EMAIL'][0]['VALUE']) && $contact['EMAIL'][0]['VALUE'] === $email
+        ) {
+            $contactId = $contact['ID'];
+            $createNewContact = false;
+            break;
+        }
     }
 
-    if ($contactData && isset($contactData['ID'])) {
-        $contactId = $contactData['ID'];
-    } else {
+    if ($createNewContact) {
         $contact = new Contact($name, $lastName, $phone, $email, $type);
         $contactId = $bitrix->createContact($contact->toArray());
-
         if (!$contactId) {
             throw new \Exception("Не удалось создать контакт.");
         }
@@ -48,7 +56,6 @@ try {
         'CONTACT_ID' => $contactId
     ]);
     $dealId = $bitrix->createDeal($dealFields);
-
     if (!$dealId) {
         throw new \Exception("Не удалось создать сделку.");
     }
